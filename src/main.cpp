@@ -54,6 +54,7 @@ static inline void readCompressedActions(::std::ifstream &replayStream, baje::Re
 		header.sizeOfCompressedDataBlock = read_u16_le(replayStream);
 		header.sizeOfDecompressedDataBlock = read_u16_le(replayStream);
 		auto unknown = read_u32_le(replayStream);
+		(void)unknown;
 		::std::cout << ::std::dec << header.sizeOfCompressedDataBlock << ", " << header.sizeOfDecompressedDataBlock << ::std::endl;
 		unsigned char *in = new unsigned char[header.sizeOfCompressedDataBlock];
 		unsigned char *out = new unsigned char[header.sizeOfDecompressedDataBlock];
@@ -75,6 +76,8 @@ static inline void readCompressedActions(::std::ifstream &replayStream, baje::Re
 		strm.next_in = in;
 		int r;
 		do {
+			strm.avail_out = header.sizeOfDecompressedDataBlock;
+			strm.next_out = out;
 		    r = inflate(&strm, Z_SYNC_FLUSH);
 
 		    if (r == Z_NEED_DICT) r = Z_DATA_ERROR;
@@ -83,13 +86,6 @@ static inline void readCompressedActions(::std::ifstream &replayStream, baje::Re
 			std::cerr << "Block " << i << ": inflate error r=" << r
 				  << " msg=" << (strm.msg ? strm.msg : "(null)") << "\n";
 			error = true;
-				break;
-		    }
-
-		    // If output buffer fills but stream not ended, that's a format mismatch vs outSize
-		    if (r != Z_STREAM_END && strm.avail_out == 0) {
-			std::cerr << "Block " << i << ": output buffer too small (outSize=" << header.sizeOfDecompressedDataBlock << ")\n";
-				error = true;
 				break;
 		    }
 
