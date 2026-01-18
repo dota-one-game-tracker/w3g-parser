@@ -19,6 +19,23 @@ struct ReplayHeader {
 };
 }
 
+static uint16_t read_u16_le(std::istream& s) {
+    uint8_t b[2];
+    s.read(reinterpret_cast<char*>(b), 2);
+    if (!s) throw std::runtime_error("read_u16_le failed");
+    return static_cast<uint16_t>(b[0] | (static_cast<uint16_t>(b[1]) << 8));
+}
+
+static uint32_t read_u32_le(std::istream& s) {
+    uint8_t b[4];
+    s.read(reinterpret_cast<char*>(b), 4);
+    if (!s) throw std::runtime_error("read_u32_le failed");
+    return static_cast<uint32_t>(b[0] |
+                                 (static_cast<uint32_t>(b[1]) << 8) |
+                                 (static_cast<uint32_t>(b[2]) << 16) |
+                                 (static_cast<uint32_t>(b[3]) << 24));
+}
+
 void printPlayerRecord(unsigned char *data, size_t length) {
 	size_t count = 0;
 ::std::cout << "Record id:\t0x" << ::std::hex << data[count++] << ::std::endl;
@@ -31,13 +48,12 @@ void printPlayerRecord(unsigned char *data, size_t length) {
 }
 
 static inline void readCompressedActions(::std::ifstream &replayStream, baje::ReplayHeader &header) {
-	char unknown[4] = {0};
 	
 	bool error = false;
 	for (size_t i = 0; i < header.numberOfCompressedDataBlocks; ++i) {
-		replayStream.read(reinterpret_cast<char *>(&header.sizeOfCompressedDataBlock), sizeof(header.sizeOfCompressedDataBlock));
-		replayStream.read(reinterpret_cast<char *>(&header.sizeOfDecompressedDataBlock), sizeof(header.sizeOfDecompressedDataBlock));
-		replayStream.read(unknown, sizeof(unknown));
+		header.sizeOfCompressedDataBlock = read_u16_le(replayStream);
+		header.sizeOfDecompressedDataBlock = read_u16_le(replayStream);
+		auto unknown = read_u32_le(replayStream);
 		::std::cout << ::std::dec << header.sizeOfCompressedDataBlock << ", " << header.sizeOfDecompressedDataBlock << ::std::endl;
 		unsigned char *in = new unsigned char[header.sizeOfCompressedDataBlock];
 		unsigned char *out = new unsigned char[header.sizeOfDecompressedDataBlock];
