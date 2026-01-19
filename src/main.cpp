@@ -88,10 +88,13 @@ static inline void handlePlayerRecord(baje::Cursor &cursor)
 	cursor.read_u8(recordId);
 	cursor.read_u8(playerId);
 	::std::string host = cursor.read_cstr();
+	::std::uint8_t additionalData = 0;
+	cursor.read_u8(additionalData);
 
 	::std::cout << "RecordId 0x" << std::hex << (int) recordId
-		    << " playerId 0x" << (int) playerId << std::dec << "\n";
-	::std::cout << "Host name: " << host << "\n";
+		    << " playerId 0x" << (int) playerId << " additional data 0x"
+		    << (int) additionalData << ::std::dec << ::std::endl;
+	::std::cout << "Host name: " << host << ::std::endl;
 }
 
 static inline void handleFirstDecompressedBlock(const std::uint8_t *data,
