@@ -51,6 +51,11 @@ struct Cursor {
 		return true;
 	}
 
+	::std::uint8_t peek()
+	{
+		return *p;
+	}
+
 	bool skip(size_t n)
 	{
 		if (static_cast<size_t>(end - p) < n)
@@ -113,16 +118,12 @@ static inline void handlePlayerRecord(baje::Cursor &cursor)
 	::std::cout << "Player name: " << host << ::std::endl;
 }
 
-static inline void handlePlayerList(baje::Cursor &cursor)
-{
-	handlePlayerRecord(cursor);
-}
-
-static inline void handlePlayerCount(baje::Cursor &cursor)
+static inline ::std::uint32_t handlePlayerCount(baje::Cursor &cursor)
 {
 	::std::uint32_t playerCount;
 	cursor.read_u32(playerCount);
 	::std::cout << "Player count " << playerCount << ::std::endl;
+	return playerCount;
 }
 
 static inline void handleGameType(baje::Cursor &cursor)
@@ -161,10 +162,14 @@ static inline void handleFirstDecompressedBlock(const std::uint8_t *data,
 	handleGameName(cursor);
 	cursor.skip(1);
 	handleGameSettings(cursor);
-	handlePlayerCount(cursor);
+	auto playerCount = handlePlayerCount(cursor);
 	handleGameType(cursor);
 	handleLanguageId(cursor);
-	handlePlayerList(cursor);
+
+	for (::std::uint32_t i = 1; i < playerCount; i++) {
+		handlePlayerRecord(cursor);
+		cursor.skip(4);
+	}
 }
 
 static inline void readCompressedActions(::std::ifstream &replayStream,
@@ -177,9 +182,6 @@ static inline void readCompressedActions(::std::ifstream &replayStream,
 		header.sizeOfDecompressedDataBlock = read_u16_le(replayStream);
 		auto unknown = read_u32_le(replayStream);
 		(void) unknown;
-		::std::cout << ::std::dec << header.sizeOfCompressedDataBlock
-			    << ", " << header.sizeOfDecompressedDataBlock
-			    << ::std::endl;
 		unsigned char *in =
 			new unsigned char[header.sizeOfCompressedDataBlock];
 		unsigned char *out =
