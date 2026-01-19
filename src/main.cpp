@@ -5,12 +5,9 @@
 #include <fstream>
 #include <ios>
 #include <iostream>
-#include <spanstream>
-#include <sstream>
 #include <string>
+#include <vector>
 #include <zlib.h>
-
-#include <span>
 
 namespace baje
 {
@@ -27,6 +24,7 @@ enum PlayerRecordType : ::std::uint8_t { host = 0x00, additionalPlayer = 0x16 };
 struct PlayerRecord {
 	PlayerRecordType type;
 	::std::uint8_t playerId;
+	::std::string playerName;
 };
 
 struct Cursor {
@@ -96,14 +94,16 @@ static uint32_t read_u32_le(::std::istream &s)
 				     (static_cast<uint32_t>(b[3]) << 24));
 }
 
-static inline void handlePlayerRecord(baje::Cursor &cursor)
+static inline baje::PlayerRecord handlePlayerRecord(baje::Cursor &cursor)
 {
-	::std::uint8_t recordId = 0;
-
-	::std::uint8_t playerId = 0;
-	cursor.read_u8(recordId);
-	cursor.read_u8(playerId);
-	::std::string host = cursor.read_cstr();
+	baje::PlayerRecord playerRecord{};
+	::std::uint8_t type = 0;
+	::std::uint8_t id = 0;
+	cursor.read_u8(type);
+	playerRecord.type = (baje::PlayerRecordType) type;
+	cursor.read_u8(id);
+	playerRecord.playerId = id;
+	playerRecord.playerName = cursor.read_cstr();
 	::std::uint8_t additionalData = 0;
 	cursor.read_u8(additionalData);
 	if (additionalData == 0x01) {
@@ -111,11 +111,7 @@ static inline void handlePlayerRecord(baje::Cursor &cursor)
 	} else {
 		cursor.skip(8);
 	}
-
-	::std::cout << "RecordId 0x" << std::hex << (int) recordId
-		    << " playerId 0x" << (int) playerId << " additional data 0x"
-		    << (int) additionalData << ::std::dec << ::std::endl;
-	::std::cout << "Player name: " << host << ::std::endl;
+	return playerRecord;
 }
 
 static inline ::std::uint32_t handlePlayerCount(baje::Cursor &cursor)
@@ -156,9 +152,10 @@ static inline void handleFirstDecompressedBlock(const std::uint8_t *data,
 {
 	baje::Cursor cursor{data, data + len};
 
+	::std::vector<baje::PlayerRecord> players{};
 	cursor.skip(4); // doc says hostname begins at 6th byte of first block
 			// in your interpretation
-	handlePlayerRecord(cursor);
+	players.emplace_back(handlePlayerRecord(cursor));
 	handleGameName(cursor);
 	cursor.skip(1);
 	handleGameSettings(cursor);
@@ -167,8 +164,12 @@ static inline void handleFirstDecompressedBlock(const std::uint8_t *data,
 	handleLanguageId(cursor);
 
 	for (::std::uint32_t i = 1; i < playerCount; i++) {
-		handlePlayerRecord(cursor);
+		players.emplace_back(handlePlayerRecord(cursor));
 		cursor.skip(4);
+	}
+	for (const auto &p : players) {
+		::std::cout << p.playerName << ", id=0x" << ::std::hex
+			    << (int) p.playerId << ::std::endl;
 	}
 }
 
