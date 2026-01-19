@@ -22,6 +22,13 @@ struct ReplayHeader {
 	::std::uint16_t sizeOfDecompressedDataBlock;
 };
 
+enum PlayerRecordType : ::std::uint8_t { host = 0x00, additionalPlayer = 0x16 };
+
+struct PlayerRecord {
+	PlayerRecordType type;
+	::std::uint8_t playerId;
+};
+
 struct Cursor {
 	const std::uint8_t *p;
 	const std::uint8_t *end;
@@ -31,6 +38,16 @@ struct Cursor {
 		if (p >= end)
 			return false;
 		v = *p++;
+		return true;
+	}
+
+	bool read_u32(::std::uint32_t &v)
+	{
+		if (p + sizeof(::std::uint32_t) >= end) {
+			return false;
+		}
+		::std::memcpy(&v, p, sizeof(::std::uint32_t));
+		p = p + sizeof(::std::uint32_t);
 		return true;
 	}
 
@@ -74,12 +91,6 @@ static uint32_t read_u32_le(::std::istream &s)
 				     (static_cast<uint32_t>(b[3]) << 24));
 }
 
-void parsePlayerListFromRecord(::std::uint8_t *data, size_t length)
-{
-	::std::basic_spanstream<::std::uint8_t> stream{
-		std::span<::std::uint8_t>(data, length)};
-}
-
 static inline void handlePlayerRecord(baje::Cursor &cursor)
 {
 	::std::uint8_t recordId = 0;
@@ -90,21 +101,70 @@ static inline void handlePlayerRecord(baje::Cursor &cursor)
 	::std::string host = cursor.read_cstr();
 	::std::uint8_t additionalData = 0;
 	cursor.read_u8(additionalData);
+	if (additionalData == 0x01) {
+		cursor.skip(1);
+	} else {
+		cursor.skip(8);
+	}
 
 	::std::cout << "RecordId 0x" << std::hex << (int) recordId
 		    << " playerId 0x" << (int) playerId << " additional data 0x"
 		    << (int) additionalData << ::std::dec << ::std::endl;
-	::std::cout << "Host name: " << host << ::std::endl;
+	::std::cout << "Player name: " << host << ::std::endl;
+}
+
+static inline void handlePlayerList(baje::Cursor &cursor)
+{
+	handlePlayerRecord(cursor);
+}
+
+static inline void handlePlayerCount(baje::Cursor &cursor)
+{
+	::std::uint32_t playerCount;
+	cursor.read_u32(playerCount);
+	::std::cout << "Player count " << playerCount << ::std::endl;
+}
+
+static inline void handleGameType(baje::Cursor &cursor)
+{
+	::std::uint32_t gameType = 0;
+	cursor.read_u32(gameType);
+	::std::cout << "Game type " << gameType << ::std::endl;
+}
+
+static inline void handleLanguageId(baje::Cursor &cursor)
+{
+	::std::uint32_t languageId = 0;
+	cursor.read_u32(languageId);
+	::std::cout << "Language id 0x" << ::std::hex << languageId
+		    << ::std::endl;
+}
+
+static inline void handleGameSettings(baje::Cursor &cursor)
+{
+	::std::cout << cursor.read_cstr() << ::std::endl;
+}
+
+static inline void handleGameName(baje::Cursor &cursor)
+{
+	::std::cout << cursor.read_cstr() << ::std::endl;
 }
 
 static inline void handleFirstDecompressedBlock(const std::uint8_t *data,
 						size_t len)
 {
-	baje::Cursor c{data, data + len};
+	baje::Cursor cursor{data, data + len};
 
-	c.skip(4); // doc says hostname begins at 6th byte of first block in
-		   // your interpretation
-	handlePlayerRecord(c);
+	cursor.skip(4); // doc says hostname begins at 6th byte of first block
+			// in your interpretation
+	handlePlayerRecord(cursor);
+	handleGameName(cursor);
+	cursor.skip(1);
+	handleGameSettings(cursor);
+	handlePlayerCount(cursor);
+	handleGameType(cursor);
+	handleLanguageId(cursor);
+	handlePlayerList(cursor);
 }
 
 static inline void readCompressedActions(::std::ifstream &replayStream,
