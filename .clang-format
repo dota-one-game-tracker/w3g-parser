@@ -1,0 +1,28 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+# Indentation and Tabs
+IndentWidth: 8
+TabWidth: 8
+UseTab: Always
+ContinuationIndentWidth: 8
+
+# Layout and Braces
+ColumnLimit: 80
+BreakBeforeBraces: Linux
+IndentCaseLabels: false
+
+# Spacing and Alignment
+PointerAlignment: Right
+SpaceAfterCStyleCast: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+
+# Disallow condensed logic (K&R style)
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+
+# Cleanup
+SortIncludes: true
