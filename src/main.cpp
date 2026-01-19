@@ -5,7 +5,12 @@
 #include <fstream>
 #include <ios>
 #include <iostream>
+#include <spanstream>
+#include <sstream>
+#include <string>
 #include <zlib.h>
+
+#include <span>
 
 namespace baje
 {
@@ -16,9 +21,40 @@ struct ReplayHeader {
 	::std::uint16_t sizeOfCompressedDataBlock;
 	::std::uint16_t sizeOfDecompressedDataBlock;
 };
+
+struct Cursor {
+	const std::uint8_t *p;
+	const std::uint8_t *end;
+
+	bool read_u8(std::uint8_t &v)
+	{
+		if (p >= end)
+			return false;
+		v = *p++;
+		return true;
+	}
+
+	bool skip(size_t n)
+	{
+		if (static_cast<size_t>(end - p) < n)
+			return false;
+		p += n;
+		return true;
+	}
+
+	std::string read_cstr()
+	{
+		std::string s;
+		while (p < end && *p != 0)
+			s.push_back(static_cast<char>(*p++));
+		if (p < end && *p == 0)
+			++p; // consume null
+		return s;
+	}
+};
 } // namespace baje
 
-static uint16_t read_u16_le(std::istream &s)
+static uint16_t read_u16_le(::std::istream &s)
 {
 	uint8_t b[2];
 	s.read(reinterpret_cast<char *>(b), 2);
@@ -27,7 +63,7 @@ static uint16_t read_u16_le(std::istream &s)
 	return static_cast<uint16_t>(b[0] | (static_cast<uint16_t>(b[1]) << 8));
 }
 
-static uint32_t read_u32_le(std::istream &s)
+static uint32_t read_u32_le(::std::istream &s)
 {
 	uint8_t b[4];
 	s.read(reinterpret_cast<char *>(b), 4);
@@ -38,18 +74,34 @@ static uint32_t read_u32_le(std::istream &s)
 				     (static_cast<uint32_t>(b[3]) << 24));
 }
 
-void printPlayerRecord(unsigned char *data, size_t length)
+void parsePlayerListFromRecord(::std::uint8_t *data, size_t length)
 {
-	size_t count = 0;
-	::std::cout << "Record id:\t0x" << ::std::hex << data[count++]
-		    << ::std::endl;
-	::std::cout << "Player id:\t0x" << ::std::hex << data[count++]
-		    << ::std::endl;
-	::std::cout << "Player name\t";
-	for (; data[count] != 0 && count < length; ++count) {
-		::std::cout << data[count];
-	}
-	::std::cout << ::std::endl;
+	::std::basic_spanstream<::std::uint8_t> stream{
+		std::span<::std::uint8_t>(data, length)};
+}
+
+static inline void handlePlayerRecord(baje::Cursor &cursor)
+{
+	::std::uint8_t recordId = 0;
+
+	::std::uint8_t playerId = 0;
+	cursor.read_u8(recordId);
+	cursor.read_u8(playerId);
+	::std::string host = cursor.read_cstr();
+
+	::std::cout << "RecordId 0x" << std::hex << (int) recordId
+		    << " playerId 0x" << (int) playerId << std::dec << "\n";
+	::std::cout << "Host name: " << host << "\n";
+}
+
+static inline void handleFirstDecompressedBlock(const std::uint8_t *data,
+						size_t len)
+{
+	baje::Cursor c{data, data + len};
+
+	c.skip(4); // doc says hostname begins at 6th byte of first block in
+		   // your interpretation
+	handlePlayerRecord(c);
 }
 
 static inline void readCompressedActions(::std::ifstream &replayStream,
@@ -116,8 +168,12 @@ static inline void readCompressedActions(::std::ifstream &replayStream,
 
 		auto produced =
 			header.sizeOfDecompressedDataBlock - strm.avail_out;
-		printPlayerRecord(out + 4, produced - 4);
 
+		if (i == 0) {
+			::std::cout << "out[5] = 0x" << ::std::hex << out[5]
+				    << ::std::endl;
+			handleFirstDecompressedBlock(out, produced);
+		}
 		delete[] in;
 		delete[] out;
 		inflateEnd(&strm);
