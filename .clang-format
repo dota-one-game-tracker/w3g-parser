@@ -1,28 +1,37 @@
 ---
-Language: Cpp
 BasedOnStyle: LLVM
+Language: Cpp
 
-# Indentation and Tabs
-IndentWidth: 8
-TabWidth: 8
+# 80-col classic
+ColumnLimit: 80
+
+# Old-school tabs
 UseTab: Always
+TabWidth: 8
+IndentWidth: 8
 ContinuationIndentWidth: 8
 
-# Layout and Braces
-ColumnLimit: 80
-BreakBeforeBraces: Linux
-IndentCaseLabels: false
+# K&R braces
+BreakBeforeBraces: Attach
 
-# Spacing and Alignment
-PointerAlignment: Right
-SpaceAfterCStyleCast: true
+# Control statements spacing (typical K&R-ish)
 SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
 SpaceInEmptyParentheses: false
 
-# Disallow condensed logic (K&R style)
-AllowShortBlocksOnASingleLine: false
-AllowShortFunctionsOnASingleLine: None
-AllowShortIfStatementsOnASingleLine: false
+# Parameters / arguments formatting
+BinPackParameters: false
+BinPackArguments: false
 
-# Cleanup
-SortIncludes: true
+# If params wrap, put ')' on its own line (for declarations/definitions)
+AlignAfterOpenBracket: BlockIndent
+AllowAllParametersOfDeclarationOnNextLine: false
+
+# Keep single-line things reasonable
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Inline
+
+# Pointer style (common in K&R-ish C/C++)
+DerivePointerAlignment: false
+PointerAlignment: Left
